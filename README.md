@@ -16,48 +16,158 @@
 
 ```mermaid
 graph TD
-    %% Users
-    User["👶 ผู้ใช้งานทั่วไป / ผู้ปกครอง"]
-    Admin["👩‍🏫 ผู้ดูแลระบบ (Admin)"]
-
-    %% Frontend
-    subgraph Frontend ["🌐 Frontend (React + Vite)"]
-        Web["เว็บไซต์ประชาสัมพันธ์"]
-        AdminPanel["ระบบจัดการหลังบ้าน"]
+    %% ==========================================
+    %% 1. USER LAYERS (ผู้ใช้งาน)
+    %% ==========================================
+    subgraph Users ["👥 User Layer (ผู้ใช้งาน)"]
+        Parent["👨‍👩‍👧 Public User / Parent<br>(ผู้ปกครอง)"]
+        AdminUser["👩‍🏫 Admin / Teacher<br>(ครู / เจ้าหน้าที่)"]
+        ExternalSys["🤖 External Systems<br>(Cron Jobs)"]
     end
 
-    %% Backend
-    subgraph BackendSystem ["⚙️ Backend (Node.js on Render)"]
-        API["API Server (Express)"]
-        Scheduler["Auto News Scheduler"]
+    %% ==========================================
+    %% 2. FRONTEND LAYER (ส่วนแสดงผล)
+    %% ==========================================
+    subgraph Frontend ["💻 Client Side: Frontend Application (React + Vite)"]
+        direction TB
+        
+        %% 2.1 Public Modules
+        subgraph PublicApp ["🌐 Public Interface (หน้าบ้าน)"]
+            HomePg["🏠 Home Page"]
+            NewsPg["📰 News & Activities"]
+            ServicePg["🍱 Services (Menu, Downloads)"]
+            
+            subgraph AIChatWidget ["🤖 AI Assistant"]
+                ChatUI["💬 Chat UI"]
+                ChatState["⚡ State: Messages"]
+            end
+        end
+
+        %% 2.2 Admin Modules
+        subgraph AdminApp ["⚙️ Backoffice Interface (หลังบ้าน)"]
+            Dashboard["📊 Dashboard"]
+            
+            subgraph CMS_Module ["📝 Content Management"]
+                NewsEditor["✍️ News Editor"]
+                ActivityMgr["🏃 Activities Manager"]
+            end
+            
+            subgraph Edu_Module ["👶 Student Management"]
+                StudentList["📋 Student Records"]
+                Attendance["📅 Attendance Check"]
+                JitArsa["❤️ JitArsa (จิตอาสา)"]
+            end
+            
+            SettingsUI["🔧 Settings & Users"]
+        end
+
+        %% 2.3 Shared Logic
+        subgraph ClientLogic ["🧠 Client Logic"]
+            Axios["📡 Axios Interceptor<br>(API Request Handler)"]
+            AuthCtx["🔐 Auth Context<br>(JWT Handling)"]
+        end
     end
 
-    %% External & Data
-    subgraph CloudServices ["☁️ Cloud Services"]
-        DB[("Firebase Firestore\nDatabase")]
-        Gemini["🧠 Google Gemini AI"]
+    %% ==========================================
+    %% 3. BACKEND LAYER (ส่วนประมวลผล)
+    %% ==========================================
+    subgraph Backend ["☁️ Server Side: Backend API (Node.js + Express)"]
+        direction TB
+
+        %% 3.1 Main Server Entry
+        Server["🚀 Server.js (Entry Point)"]
+
+        %% 3.2 Middlewares
+        subgraph Middlewares ["🛡️ Middleware Layer"]
+            CorsMW["🌍 CORS"]
+            AuthMW["🔐 Auth Middleware (JWT Verify)"]
+        end
+
+        %% 3.3 API Routes Controllers
+        subgraph Controllers ["🎮 API Routes (Controllers)"]
+            
+            subgraph Auth_Controller ["🔑 /api/auth"]
+                Login["POST /login"]
+                Register["POST /register"]
+                Me["GET /me"]
+            end
+
+            subgraph Content_Controller ["📄 /api/content"]
+                GetPost["GET / (All/Filter)"]
+                CreatePost["POST / (Create)"]
+                EditPost["PUT /:id"]
+            end
+
+            subgraph Student_Controller ["🎓 /api/students"]
+                GetStud["GET / (List)"]
+                AddStud["POST / (Add)"]
+            end
+
+            subgraph AI_Controller ["🤖 /api/chat"]
+                ChatBot["POST / (Ask Gemini)"]
+            end
+
+            subgraph Scheduler_Controller ["⏰ Schedulers"]
+                AutoNews["📰 Auto News Job"]
+                KeepAlive["💓 Keep Alive Job"]
+            end
+        end
     end
 
-    subgraph External ["โลกภายนอก"]
-        RSS["📰 Google News RSS"]
-        CronJob["⏰ External Cron (09:00 น.)"]
+    %% ==========================================
+    %% 4. DATA & EXTERNAL SERVICES (ข้อมูลและบริการภายนอก)
+    %% ==========================================
+    subgraph DataLayer ["🗄️ Database & Cloud Services"]
+        direction TB
+
+        subgraph FirestoreDB ["🔥 Firebase Firestore (NoSQL)"]
+            Col_Users[("👤 users<br>{username, password_hash, role}")]
+            Col_Content[("📄 content<br>{title, body, category, image}")]
+            Col_Students[("👶 students<br>{name, p_contact, health}")]
+            Col_QnA[("❓ chatbot_qa<br>{question, answer, vector}")]
+        end
+
+        subgraph GoogleLink ["🔗 Google Ecosystem"]
+            GeminiAPI["🧠 Gemini AI API"]
+            GoogleNews["📰 Google News RSS"]
+        end
     end
 
-    %% Connections
-    User -->|เข้าชมเว็บไซต์| Web
-    Admin -->|Login / จัดการข้อมูล| AdminPanel
+    %% ==========================================
+    %% 5. CONNECTIONS (เส้นทางการไหลของข้อมูล)
+    %% ==========================================
+
+    %% User Actions
+    Parent ==>|View / Read| PublicApp
+    Parent -.->|Ask Question| ChatUI
+    AdminUser ==>|Log In| AdminApp
+    ExternalSys -.->|Trigger| AutoNews
+
+    %% Frontend Internal Flow
+    PublicApp --> Axios
+    AdminApp --> Axios
+    Axios --> AuthCtx
+
+    %% Client -> Server Request
+    Axios == HTTP Request ==> Server
+    Server --> CorsMW
+    CorsMW --> AuthMW
+    AuthMW --> Controllers
+
+    %% Controller Logic
+    Login & Register & Me -.->|Read/Write| Col_Users
+    GetPost & CreatePost & EditPost -.->|CRUD| Col_Content
+    GetStud & AddStud -.->|CRUD| Col_Students
     
-    Web -->|Request API| API
-    AdminPanel -->|Request API| API
+    %% AI & Automation Flow
+    ChatUI -->|Send Msg| ChatBot
+    ChatBot -->|1. Get Context| Col_QnA
+    ChatBot -->|2. Prompt Eng.| GeminiAPI
+    GeminiAPI -->|3. Response| ChatBot
     
-    API -->|Read/Write Data| DB
-    API -->|Generate Content / Chat| Gemini
-    
-    %% Automation Flow
-    CronJob -->|Trigger via API| API
-    Scheduler -->|1. Fetch News| RSS
-    Scheduler -->|2. Summarize & Rewrite| Gemini
-    Scheduler -->|3. Save Auto Post| DB
+    AutoNews -->|1. Fetch RSS| GoogleNews
+    AutoNews -->|2. Summarize| GeminiAPI
+    AutoNews -->|3. Save Post| Col_Content
 ```
 
 ## 🚀 วิธีการเริ่มโปรเจกต์ (How to Start)
